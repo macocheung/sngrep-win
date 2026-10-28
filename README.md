@@ -3,7 +3,7 @@
 Native Windows build of [irontec/sngrep](https://github.com/irontec/sngrep) (v1.9.0) as a **single
 exe** (`dist/sngrep.exe`, no DLLs or data files). Built with MSYS2 UCRT64, ncurses 6.6 and Npcap.
 
-Prebuilt binary: [`bin/sngrep.exe`](bin/sngrep.exe) (x64, SHA-256 `aa7810f805983b9c2f183cddf207262c0ed8bd8a3c2907517d4aae29f03971d9`).
+Prebuilt binary: [Releases](https://github.com/macocheung/sngrep-win/releases) (x64 zip and exe, SHA-256 in the release notes).
 
 ## Use
 
