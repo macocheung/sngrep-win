@@ -1,0 +1,5 @@
+build/
+dist/
+tools/libwpcap.a
+tools/wpcap.def
+*.exe
