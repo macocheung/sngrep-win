@@ -53,6 +53,44 @@
 #include "ui_settings.h"
 
 #ifdef _WIN32
+// ncurses gets no SIGWINCH on Windows: poll the console size and resize ncurses
+static int
+ui_console_resized(void)
+{
+    static int last_rows, last_cols;
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    int rows, cols;
+    char num[16];
+    static HANDLE conout = INVALID_HANDLE_VALUE;
+
+    // Ask the console itself, stdout may be redirected
+    if (conout == INVALID_HANDLE_VALUE)
+        conout = CreateFileA("CONOUT$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                             NULL, OPEN_EXISTING, 0, NULL);
+    if (conout == INVALID_HANDLE_VALUE || !GetConsoleScreenBufferInfo(conout, &info))
+        return 0;
+    rows = info.srWindow.Bottom - info.srWindow.Top + 1;
+    cols = info.srWindow.Right - info.srWindow.Left + 1;
+    if (rows == last_rows && cols == last_cols)
+        return 0;
+    if (!last_rows) {
+        // First call: remember the initial size
+        last_rows = rows;
+        last_cols = cols;
+        return 0;
+    }
+    last_rows = rows;
+    last_cols = cols;
+    // Keep LINES/COLUMNS in sync, ncurses may consult them again
+    snprintf(num, sizeof(num), "%d", rows);
+    _putenv_s("LINES", num);
+    snprintf(num, sizeof(num), "%d", cols);
+    _putenv_s("COLUMNS", num);
+    resizeterm(rows, cols);
+    clearok(curscr, TRUE);
+    return 1;
+}
+
 // ncurses can not time out wgetch() on the Windows console: wait for a key here
 static int
 ui_input_ready(int msecs)
@@ -67,6 +105,8 @@ ui_input_ready(int msecs)
         return 1;
 
     while (GetTickCount64() < deadline) {
+        if (ui_console_resized())
+            return 2;
         if (!GetNumberOfConsoleInputEvents(in, &count))
             return 1;
         // Drop mouse, focus and key release events, they never produce a key
@@ -318,7 +358,13 @@ ui_wait_for_input()
 
         // Get pressed key
 #ifdef _WIN32
-        if (!ui_input_ready(REFRESHTHSECS * 100))
+        int ready = ui_input_ready(REFRESHTHSECS * 100);
+        if (ready == 2) {
+            ui_resize_panels();
+            ui->changed = true;
+            continue;
+        }
+        if (!ready)
             continue;
 #endif
         int c = wgetch(win);
